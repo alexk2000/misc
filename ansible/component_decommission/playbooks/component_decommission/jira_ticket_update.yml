@@ -1,0 +1,100 @@
+- name: Update decommission Jira ticket with Argo metadata.
+  hosts: all
+  gather_facts: false
+  connection: local
+  run_once: true
+  vars:
+    stack: "{{ original_instance_stack | default(instance_stack) }}"
+    inventory_url: "{{ argo_url }}/inventory?environment={{ stack }}&component={{ instance_component }}" 
+    jira_url: "https://jiraelb.devtools.company"
+    attach_inventory: true
+    inventory_file_name: "inventory_{{stack}}_{{ instance_component }}.json"
+  vars_files:
+    - ../../group_vars/argo_env.yml
+
+  tasks:
+  - fail:
+      msg: "Jira ticket is required. Re-run with -e 'jira_ticket=PSUP-12345'."
+    when: jira_ticket is undefined
+
+  - name: Get Jira credentials
+    block:    
+      - pause:
+          prompt: "Enter Jira user name to access https://jira.company"
+        register: jira_user_input
+      - set_fact:
+          jira_user: "{{ jira_user_input.user_input }}"
+      - pause:
+          prompt: "Enter password for https://jira.company"
+          echo: no
+        register: jira_password_input
+      - set_fact:
+          jira_password: "{{ jira_password_input.user_input }}"
+    when: jira_user is undefined or jira_password is undefined 
+
+  - name: "Try to access ticket {{ jira_ticket }} to verify connectivity"
+    jira:
+      uri: '{{ jira_url }}'
+      username: '{{ jira_user }}'
+      password: '{{ jira_password }}'
+      operation: fetch
+      issue: "{{ jira_ticket }}"
+      validate_certs: false
+    register: issue
+    ignore_errors: yes
+    delegate_to: labshop.company
+
+  - name: "Check whether we need to attach inventory or not"
+    set_fact:
+      attach_inventory: false
+    vars:
+      qry: "attachment[?filename=='{{ inventory_file_name }}']"
+    when: "issue.meta.fields | json_query(qry)  | length > 0"
+
+  - debug:
+      msg: "{{ jira_ticket }} seems to have inventory file attached already. Skipping the rest."
+    when: "attach_inventory == false"
+
+  - name: "Get inventory from Argo and attach to {{ jira_ticket }}"
+    block:
+      - name: "Get inventory from Argo"
+        uri:
+          url: "{{ inventory_url }}"
+          method: GET
+          validate_certs: no
+        register: argo_inventory
+
+      - name: "Create temp directory for file upload"
+        tempfile:
+          state: directory
+          suffix: temp
+        register: tempdir_1
+
+      - name: "Write inventory into file"
+        copy:
+          content: "{{ argo_inventory }}"
+          dest: "{{ tempdir_1.path }}/{{ inventory_file_name }}"
+
+      - name: "Upload inventory to {{ jira_ticket }}"
+        shell: 'curl -f -k -s -X POST -u ''{{ jira_user }}'':''{{ jira_password }}'' \
+               -H "Content-Type: multipart/form-data" \
+               -H "X-Atlassian-Token: nocheck" \
+               {{ jira_url }}/rest/api/2/issue/{{ jira_ticket }}/attachments -F "file=@{{ tempdir_1.path }}/{{ inventory_file_name }}"'
+
+      - name: "Comment on {{ jira_ticket }}"
+        jira:
+          uri: '{{ jira_url }}'
+          username: '{{ jira_user }}'
+          password: '{{ jira_password }}'
+          issue: '{{ issue.meta.key }}'
+          operation: comment
+          comment: "Attach Argo inventory for environment *{{ stack }}* and component *{{ instance_component }}*."
+          validate_certs: false
+    delegate_to: labshop.company
+    always:
+     - name: "Remove temp directory"
+       file:
+         path: "{{ tempdir_1.path }}"
+         state: absent
+    when: attach_inventory
+

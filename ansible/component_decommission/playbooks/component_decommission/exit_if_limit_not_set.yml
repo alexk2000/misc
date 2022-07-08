@@ -1,0 +1,14 @@
+- name: Verify if --limit used, exit if NO
+  hosts: all
+  gather_facts: no
+  connection: local
+  run_once: True
+  tasks:
+    - name: checking variable ansible_limit if defined and not empty
+      fail:
+        msg: "running without --limit, not correct, exiting ..."
+      when: ansible_limit is not defined or ansible_limit|length == 0
+    - name: print ansible_limit
+      debug: 
+        var: ansible_limit
+        verbosity: 1

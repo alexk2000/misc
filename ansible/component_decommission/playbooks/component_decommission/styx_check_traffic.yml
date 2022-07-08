@@ -1,0 +1,54 @@
+- debug:
+    msg: "verification if traffic still going through Styx (by comparing sum of successRate between {{ traffic_delay_ }}s)"
+
+- name: Find Styx instances
+  uri:
+    url: "{{ argo_url }}/environment/{{ item[0] }}/component/{{ item[1] }}/instances"
+    validate_certs: no
+  register: styx_instances
+  ignore_errors: yes
+
+- name: getting traffic statistics from each Styx instance
+  uri:
+    url: http://{{ item_inst.value.server }}:{{ item_inst.value.metadata.admin_port }}/admin/dashboard/data.json
+  loop: "{{ styx_instances.json.instances }}"
+  loop_control:
+    loop_var: item_inst
+  register: styx_instances_stat_before
+  ignore_errors: yes
+  when: styx_instances.status == 200
+
+
+- name: delayed Styx traffic verification
+  block:
+    - set_fact:
+        counter_before: "{{ styx_instances_stat_before | json_query('results[*].json.downstream.backends[?name==`' + instance_component + '`].requests.successRate.count') | flatten | sum(start=0)  }}"
+
+    - debug: var=counter_before
+
+    - name: delay {{ traffic_delay_ }} seconds
+      pause:
+        seconds: "{{ traffic_delay_ }}"
+
+    - name: getting traffic statistics from each Styx instance after delay
+      uri:
+        url: http://{{ item_inst.value.server }}:{{ item_inst.value.metadata.admin_port }}/admin/dashboard/data.json
+      loop: "{{ styx_instances.json.instances }}"
+      loop_control:
+        loop_var: item_inst
+      register: styx_instances_stat_after
+      ignore_errors: yes
+
+    - set_fact:
+        counter_after: "{{ styx_instances_stat_after | json_query('results[*].json.downstream.backends[?name==`' + instance_component + '`].requests.successRate.count') | flatten | sum(start=0)  }}"
+
+    - debug: var=counter_after
+
+    - name: verification hits before and after delay
+      fail:
+        msg: "Seems traffic still going through Styx (successRate before the delay {{ counter_before }}, after {{ counter_after }}, use --skip-tags 'traffic_check' to skip traffic verification"
+      when:
+        - counter_before != counter_after
+  when:
+    - styx_instances.status == 200
+    - instance_component in styx_instances_stat_before | json_query('results[*].json.downstream.backends[*].name') | flatten

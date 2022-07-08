@@ -1,0 +1,1 @@
+[Zimbra](https://www.zimbra.com/) backup solution. It performs backup of ldap, mysql, mailboxes, files by [BorgBackup](https://www.borgbackup.org/) and stores it on several NFS file systems united by [mergerfs](https://github.com/trapexit/mergerfs).

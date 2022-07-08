@@ -1,0 +1,79 @@
+- name: unbind cs server verification
+  ignore_errors: yes
+  register: cs_server_status
+  uri:
+    url: https://{{ i_use_a_netscaler }}/nitro/v1/config/csvserver_cspolicy_binding/{{ cs_vserver }}?filter=policyname:{{ cs_policy_name }}
+    validate_certs: n
+    user: "{{ netscaler_user }}"
+    password: "{{ netscaler_pass }}"
+    timeout: 600
+- fail:
+    msg: "Error: cs server binding {{ cs_vserver }} to {{ cs_policy_name }} still exists after removal"
+  when: cs_server_status.json.csvserver_cspolicy_binding is defined
+
+- name: remove cs policy verification
+  ignore_errors: yes
+  register: cs_policy_status
+  netscaler_nitro_request:
+    nitro_protocol: https
+    validate_certs: no
+    nsip: "{{ i_use_a_netscaler }}"
+    nitro_user: "{{ netscaler_user }}"
+    nitro_pass: "{{ netscaler_pass }}"
+    operation: get
+    resource: cspolicy
+    name: "{{ cs_policy_name }}"
+- fail:
+    msg: "Error: cs policy {{ cs_policy_name }} still exists after removal"
+  when: cs_policy_status is success
+
+- name: remove lb vserver verification
+  ignore_errors: yes
+  register: cs_lbvserver_status
+  netscaler_nitro_request:
+    nitro_protocol: https
+    validate_certs: no
+    nsip: "{{ i_use_a_netscaler }}"
+    nitro_user: "{{ netscaler_user }}"
+    nitro_pass: "{{ netscaler_pass }}"
+    operation: get
+    resource: lbvserver
+    name: "{{ lb_vserver_name }}"
+- fail:
+    msg: "Error: lb vserver {{ lb_vserver_name }} still exists after removal"
+  when: cs_lbvserver_status is success
+
+- name: remove service group verification
+  ignore_errors: yes
+  register: cs_sg_status
+  netscaler_nitro_request:
+    nitro_protocol: https
+    validate_certs: no
+    nsip: "{{ i_use_a_netscaler }}"
+    nitro_user: "{{ netscaler_user }}"
+    nitro_pass: "{{ netscaler_pass }}"
+    operation: get
+    resource: serviceGroup
+    name: "{{ servicegroup_name }}"
+- fail:
+    msg: "Error: serviceGroup {{ servicegroup_name }} still exists after removal"
+  when: cs_sg_status is success
+
+- name: remove lb monitor verification
+  ignore_errors: yes
+  register: cs_lbm_status
+  netscaler_nitro_request:
+    nitro_protocol: https
+    validate_certs: no
+    nsip: "{{ i_use_a_netscaler }}"
+    nitro_user: "{{ netscaler_user }}"
+    nitro_pass: "{{ netscaler_pass }}"
+    operation: get_by_args
+    resource: lbmonitor
+    args:
+      type: HTTP
+      monitorName: "{{ lb_mon_name }}"
+- fail:
+    msg: "Error: lb monitor {{ lb_mon_name }} still exists after removal"
+  when: cs_lbm_status is success
+

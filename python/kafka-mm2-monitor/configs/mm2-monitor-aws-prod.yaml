@@ -1,0 +1,20 @@
+source:
+  name:  aws prod
+  bservers: 10.79.128.12:9092,10.79.129.12:9092,10.79.130.12:9092
+target:
+  name: kafka-backup-c1
+  bservers: 10.79.128.171:9092,10.79.129.137:9092,10.79.130.40:9092
+
+topics: ALL
+
+interval: 30
+log_level: INFO
+web_port: 80
+lag_threshold: 500000
+
+# Time range to calculate offset diff (seconds)
+# monitor_period: 21600
+monitor_period: 3600
+
+# "monitor_period" starts "monitor_shift" seconds ago
+monitor_shift: 3600

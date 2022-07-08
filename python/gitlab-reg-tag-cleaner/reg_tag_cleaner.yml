@@ -1,0 +1,38 @@
+by_projects:
+  # for 'project' use either project name with namespace or project id
+  - project: DevOps/test
+    name_regex: .*default_name_regex_for_project.*
+    keep_n:
+    older_than:
+    by_registry:
+      - reg_path: devops/test
+        name_regex: .*
+        keep_n:
+        older_than:
+  - project:  native-application/native-gateway
+    name_regex: .*-dbe|.*-stage
+    keep_n:
+    older_than: 1month
+  - project: t_group/s_group/resultsmanager
+    name_regex:
+    keep_n:
+    older_than:
+    by_registry:
+      - reg_path: t_group/s_group/results/manageradapter.tests.api
+        name_regex: .*TTP|TF|master|TEST|TR.*
+        keep_n: 5
+        older_than:
+
+by_groups:
+  - group: fe-devs
+    name_regex: ^v.*
+    keep_n: 10
+    older_than:
+  - group: Front
+    name_regex: .*v.*
+    keep_n: 10
+    older_than:
+  - group: t_group
+    name_regex: .*some_unneeded_images.*
+    keep_n: 10000
+    older_than: 1y

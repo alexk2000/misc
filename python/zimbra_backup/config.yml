@@ -1,0 +1,59 @@
+daemon: False
+appName: zbackup
+logFile: /var/log/zbackup/zbackup.log
+pidFile: /var/log/zbackup/zbackup.pid
+logLevel: 10
+nfs_list:
+         - 
+          url: nfs-host1:/export/backup_storage
+          mp: /mnt/nfs1
+         -
+          url: nfs-host2:/export/backup_storage
+          mp: /mnt/nfs2
+         -
+          url: nfs-host3:/export/backup_storage
+          mp: /mnt/nfs3
+
+#nfs_mount_point: /mnt/zimbra_backup
+merge_mp: /mnt/zimbra_backup
+backup_dir: zimbra_backup
+mailbox_save_to: mailbox
+files_save_to: files
+mysql_save_to: mysql
+ldap_save_to: ldap
+borg_mailbox_save_to: mailbox_borg 
+borg_ldap_save_to: ldap_borg
+borg_mysql_save_to: mysql_borg
+borg_files_save_to: files_borg
+lock_wait: 3600
+
+lock_file: zimbra_backup.lock
+files_to_backup:
+    - /opt/zimbra/jetty
+    - /opt/zimbra/conf
+    - /opt/zimbra/ssl
+    - /opt/zimbra/logger
+
+borg_mailbox_retention:
+    daily: 1
+    weekly: 1
+    monthly: 1
+    yearly: 0
+
+borg_ldap_retention:
+    daily: 7
+    weekly: 2
+    monthly: 2
+    yearly: 1
+
+borg_mysql_retention:
+    daily: 7
+    weekly: 2
+    monthly: 2
+    yearly: 1
+
+borg_files_retention:
+    daily: 7
+    weekly: 2
+    monthly: 2
+    yearly: 1

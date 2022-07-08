@@ -1,0 +1,19 @@
+- name: Jira ticket number
+  hosts: all
+  gather_facts: False
+  connection: local
+  run_once: True
+  tasks:
+  - name: set Jira ticket
+    block:    
+      - pause:
+          prompt: "set Jira ticket number e.g. PSUP-12345"
+        register: user_jira_ticket
+        when: jira_ticket is undefined
+  
+      - set_fact:
+          jira_ticket: "{{ user_jira_ticket.user_input }}"
+        register: jira_ticket
+        when: jira_ticket is undefined
+
+

@@ -1,0 +1,63 @@
+# not allowed using playbook without --limit
+- import_playbook: playbooks/component_decommission/exit_if_limit_not_set.yml
+
+# not allowed to specify more than on component in --limit
+- import_playbook: playbooks/component_decommission/exit_if_more_than_one_component.yml
+
+# not allowed to remove from prod (prod1 prod2 etc)
+# if component exists in staging (staging1 staging2 etc)
+- import_playbook: playbooks/component_decommission/env_verification.yml
+  tags: [ 'prod_verification' ]
+
+# code to avoid any prompts, supposed to be used in Slack integration via Flyte, 
+# currently it sets service accounts to access Stash/Jira 
+- import_playbook: playbooks/component_decommission/noprompt.yml
+  tags: [ 'never', 'noprompt' ]
+
+# ask about Jira ticket
+- import_playbook: playbooks/component_decommission/jira_ticket_number.yml
+  tags: [ 'ticket_prompt' ]
+
+# Fill Jira ticket with Argo metadata
+- import_playbook: playbooks/component_decommission/jira_ticket_update.yml
+  tags: [ 'update_ticket' ]
+
+# Create CRQ
+- import_playbook: playbooks/component_decommission/create_crq.yml
+  tags: [ 'create_crq' ]
+
+# notify slack channels about start of decommission
+- import_playbook: playbooks/component_decommission/messenger_notification_start.yml
+  tags: [ 'slack_notification_start' ]
+   
+# remove netscaler/styx conf if used
+- import_playbook: playbooks/component_decommission/netscaler_styx.yml
+  tags: [ 'netscaler_styx' ]
+
+# remove docker container (dir /company/servers/<instance name>, start/stop script)
+- import_playbook: playbooks/component_decommission/remove_instance.yml
+  tags: [ 'remove_containers' ]
+
+# add key 'decommission_date': 'current_date' to component metadata in argo
+- import_playbook: playbooks/component_decommission/add_argo_decommission_date.yml
+  tags: [ 'update_metadata' ]
+
+# remove company-pipeline-deploy-script , should be deleted before runtime-config 
+- import_playbook: playbooks/component_decommission/remove_pipeline_deploy_script.yml
+  tags: [ 'remove_pipeline_deploy_script' ]
+
+# remove runtime-config
+- import_playbook: playbooks/component_decommission/remove_runtime_config.yml
+  tags: [ 'remove_runtime_config' ]
+
+# remove component info from argo
+- import_playbook: playbooks/component_decommission/set_decommission_in_argo.yml
+  tags: [ 'set_decommission_in_argo' ]
+
+# notify slack channels about the end of decommission
+- import_playbook: playbooks/component_decommission/messenger_notification_end.yml
+  tags: [ 'slack_notification_end' ]
+
+# Close CRQ
+- import_playbook: playbooks/component_decommission/close_crq.yml
+  tags: [ 'close_crq' ]

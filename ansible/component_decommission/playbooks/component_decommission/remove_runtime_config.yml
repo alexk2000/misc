@@ -1,0 +1,62 @@
+- name: Remove runtime-config for component
+  hosts: all
+  gather_facts: False
+  connection: local
+  run_once: True
+  become: no
+
+  vars:
+    do_test_kitchen_specific_tasks: 'False'
+    get_figfile_from_stash: 'True'
+    runtime_config_git_project: 'DEVINF'
+    runtime_config_git_repo: 'runtime-config'
+
+  roles:
+    - { role: set_environment_longname }
+    - { role: load_extra_vars }
+
+  tasks:
+    - fail:
+        msg: "Jira ticket is required. Re-run with -e 'jira_ticket=PSUP-12345'."
+      when: jira_ticket is undefined
+
+    - name: Set git work dir
+      set_fact:
+        _git: "git --git-dir={{ deploy_temp_load_extra_vars_dir.path }}/.git --work-tree={{ deploy_temp_load_extra_vars_dir.path }}"
+
+    - name: Rewrite real_environment
+      set_fact: real_environment={{ instance_stack }}
+      when: instance_stack in ["phx", "phx1", "phx3"]
+
+    - name: Set runtime-config file
+      set_fact:
+        runtime_config_file: "{{ deploy_temp_load_extra_vars_dir.path }}/{{ real_environment }}/{{ instance_component }}/{{ instance_component }}.yml"
+
+    - name: git checkout master
+      local_action: "shell {{ _git }} checkout -f master"
+
+    - name: Check that runtime-config exists
+      stat:
+        path: "{{ runtime_config_file }}"
+      register: runtime_config_exists
+
+    - name: Delete runtime-config
+      file:
+        path: "{{ runtime_config_file }}"
+        state: absent
+      when: runtime_config_exists.stat.exists == True
+
+    - name: Verify if any changes made
+      local_action: "shell {{ _git }} diff --quiet HEAD"
+      ignore_errors: yes
+      register: git_changed_status
+
+    - name: Create pull request
+      include_tasks: create_pr.yml
+      vars:
+        git_project: "{{ runtime_config_git_project }}"
+        git_repo: "{{ runtime_config_git_repo }}"
+        git_dir: "{{ deploy_temp_load_extra_vars_dir.path }}"
+        git_branch: "{{ jira_ticket }}-decommission-{{ instance_component }}-from-{{ real_environment }}"
+        git_commit: "{{ jira_ticket }}: Decommission {{ instance_component }} from {{ real_environment }}"
+      when: git_changed_status.rc != 0

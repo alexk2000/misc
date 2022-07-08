@@ -1,0 +1,52 @@
+- debug:
+    msg: "Processing {{ item[0] }} {{ item[1] }} {{ argo_url }}"
+
+- name: Find Styx instances
+  uri:
+    url: "{{ argo_url }}/environment/{{ item[0] }}/component/{{ item[1] }}/instances"
+    validate_certs: no
+  register: styx_instances
+  ignore_errors: yes
+
+
+- name: Get request to each Styx instance
+  uri:
+    url: http://{{ item_inst.value.server }}:{{ item_inst.value.metadata.admin_port }}/admin/configuration/origins
+  loop: "{{ styx_instances.json.instances }}"
+  loop_control:
+    loop_var: item_inst
+  register: styx_instances_origins
+  ignore_errors: yes
+  when: styx_instances.status == 200
+
+
+- name: Redeploy Styx
+  block:
+    - set_fact:
+        main_playbook_dir: "{{ playbook_dir | replace('/playbooks/component_decommission','') }}"
+
+    - name: We need to redeploy {{ item[0] }}/{{ item[1] }}
+      debug:
+        msg: "ansible-playbook -i {{ main_playbook_dir }}/inventory/{{ item[0] }}/argo.py {{ main_playbook_dir }}/deploy_container.yml --limit='{{ item[1] }}'"
+
+    - name: Redeploy Styx
+      shell: "ansible-playbook -i {{ main_playbook_dir }}/inventory/{{ item[0] }}/argo.py {{ main_playbook_dir }}/deploy_container.yml --limit='{{ item[1] }}'"
+      become: yes
+      become_user: company
+
+    - name: Verification after Styx deploy
+      uri:
+        url: http://{{ item_inst.value.server }}:{{ item_inst.value.metadata.admin_port }}/admin/configuration/origins
+      loop: "{{ styx_instances.json.instances }}"
+      loop_control:
+        loop_var: item_inst
+      register: styx_instances_origins_ver
+
+    - fail:
+        msg: "Error: component {{ instance_component }} still in Styx {{ item[0] }}/{{ item[1] }}, seems Styx redeploy failed, manual intervention needed"
+      when: instance_component in styx_instances_origins_ver | json_query('results[*].json[*].id') | flatten
+      ignore_errors: no
+  when: 
+    - styx_instances.status == 200
+    - instance_component in styx_instances_origins | json_query('results[*].json[*].id') | flatten 
+  ignore_errors: yes

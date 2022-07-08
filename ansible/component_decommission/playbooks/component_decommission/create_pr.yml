@@ -1,0 +1,63 @@
+- set_fact:
+    git_url: "stash.company/scm/{{ git_project }}/{{ git_repo }}.git"
+    git_url_pr: "https://stash.company/rest/api/1.0/projects/{{ git_project }}/repos/{{ git_repo }}/pull-requests"
+    git_command: "git --git-dir={{ git_dir }}/.git --work-tree={{ git_dir }}"
+
+- pause:
+    prompt: "Enter git user name to access https://{{ git_url }}"
+  register: git_user_prompt
+  when: git_user is undefined
+
+- set_fact:
+    git_user: "{{ git_user_prompt }}"
+  when: git_user is undefined
+
+- pause:
+    prompt: "Enter password for git user {{ git_user.user_input }} to access https://{{ git_url }}"
+    echo: no
+  register: git_password_prompt
+  when: git_password is undefined
+
+- set_fact:
+    git_password: "{{ git_password_prompt }}"
+  when: git_password is undefined
+
+- name: add https remote
+  local_action: "shell {{ git_command }} remote add origin2 https://{{ git_user.user_input }}:{{ git_password.user_input }}@{{ git_url }}"
+
+- name: create branch
+  local_action: "shell {{ git_command }} checkout -b {{ git_branch }}"
+
+- name: git add
+  local_action: "shell {{ git_command }} add -u"
+
+- name: git commit
+  local_action: "shell {{ git_command }} commit -m '{{ git_commit }}'"
+
+- name: git push {{ git_branch }} (if failed the branch might be exist or invalid credentials)
+  #no_log: true
+  ignore_errors: no
+  local_action: "shell {{ git_command }} push origin2 {{ git_branch }}"
+
+- name: create PR
+  ignore_errors: yes
+  register: pr_status
+  uri:
+    url: "{{ git_url_pr }}"
+    method: POST
+    user: "{{ git_user.user_input }}"
+    password: "{{ git_password.user_input }}"
+    force_basic_auth: yes
+    validate_certs: no
+    body_format: json
+    body: '{"title":"{{ jira_ticket }}","description":"created by automation tool","fromRef":{"id":"refs/heads/{{ git_branch }}","repository":{"slug":"{{ git_repo }}","name":null,"project":{"key": "{{ git_project }}"}}},"toRef":{"id":"refs/heads/master","repository":{"slug":"{{ git_repo }}","name":null,"project":{"key": "{{ git_project }}"}}}}'
+
+- name: if PR already exists
+  debug:
+    msg: "PR already exists: {{ pr_status.json.errors[0].existingPullRequest.links.self[0].href }}"
+  when: pr_status.status == 409
+
+- name: if new PR created
+  debug:
+    msg: "PR created: {{ pr_status.json.links.self[0].href }}"
+  when: pr_status.status == 201

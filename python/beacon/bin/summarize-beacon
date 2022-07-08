@@ -1,0 +1,24 @@
+#!/usr/bin/python3
+
+import argparse
+from beacon import Beacon
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--from", dest="from_date")
+parser.add_argument("--to", dest="to_date")
+args = parser.parse_args()
+
+app = Beacon()
+
+if args.from_date and args.to_date:
+
+	app.main(args.from_date,args.to_date)
+
+elif args.from_date == None and args.to_date == None:
+
+	app.main()
+
+else:
+
+	print("none or both --from and --to should be specified")
+

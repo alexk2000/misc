@@ -1,0 +1,10 @@
+[
+ {
+  "file": "etc/passwd",
+  "regexp": "^root"
+ },
+ {
+  "file": "etc/group",
+  "regexp": "root:x:0:"
+ }
+]

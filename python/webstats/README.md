@@ -1,0 +1,2 @@
+- import Apache access log to SQLite
+- shows amount of requests per http code (group by code)

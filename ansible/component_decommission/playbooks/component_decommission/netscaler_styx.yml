@@ -1,0 +1,47 @@
+- name: remove netscaler configuration
+  hosts: all
+  gather_facts: False
+  connection: local
+  run_once: True
+  become: no
+  vars:
+    production_list: "[ 'prod', 'prod1', 'prod1-canary', 'prod2', 'prod2-canary', 'phx', 'phx1', 'phx2' ]"
+    non_production_list: "[ 'staging', 'staging1', 'staging2', 'staging3', 'ci', 'cloud', 'milan', 'milan1', 'milan2' ]"
+    get_figfile_from_stash: 'True'
+    do_test_kitchen_specific_tasks: 'False'
+    runtime_config_git_project: 'DEVINF'
+    runtime_config_git_repo: 'runtime-config' 
+    traffic_delay_: "{{ traffic_delay | default(60) }}" 
+  vars_files:
+    - ../../group_vars/argo_env.yml
+    - ../../roles/netscaler_v2/vars/main.yml
+    - ../../roles/netscaler_v2/defaults/main.yml
+  handlers:
+    - name: save ns conf
+      delegate_to: localhost
+      ignore_errors: True
+      netscaler_nitro_request:
+        nitro_protocol: https
+        validate_certs: no
+        nsip: "{{ i_use_a_netscaler }}"
+        nitro_user: "{{ netscaler_user }}"
+        nitro_pass: "{{ netscaler_pass }}"
+        operation: save_config
+
+  roles:
+    - { role: set_environment_longname } # we like inconsistant naming, sometimes prod sometimes production, here we set variables so production = prod or vice versa and ci-master = ci you can see what I do in the vars/main.yml
+    - { role: set_argo_longname } # set fact_argo_longname by querying argo
+    - { role: make_local_working_temp_dir } # make a temp directory on the host running the playbook to do stuff in
+    - { role: load_extra_vars } # go and get me the runtime config from stash if set to True
+  #  - { role: exit }
+
+
+  tasks:
+
+    - name: Remove from Styx if used
+      include_tasks: styx.yml      
+      when: i_use_styx is defined
+
+    - name: Remove from Netscaler if used
+      include_tasks: netscaler.yml
+      when: i_use_a_netscaler is defined and i_use_a_netscaler in netscalers_list

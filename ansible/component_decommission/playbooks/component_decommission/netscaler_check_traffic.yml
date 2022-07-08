@@ -1,0 +1,53 @@
+- debug:
+    msg: "verification if traffic still going through netscaler (by comparing cs policy hits between {{ traffic_delay_ }}s)"
+
+- name: get cs policy hits before delay
+  ignore_errors: yes
+  register: cs_policy_hits_before
+  vars:
+    cs_policy_name: "company-cspolicy-{{ instance_stack }}-{{ fact_argo_longname }}"
+  netscaler_nitro_request:
+    nitro_protocol: https
+    validate_certs: no
+    nsip: "{{ i_use_a_netscaler }}"
+    nitro_user: "{{ netscaler_user }}"
+    nitro_pass: "{{ netscaler_pass }}"
+    operation: get
+    resource: cspolicy
+    name: "{{ item }}"
+  loop:
+    - "company-cspolicy-{{ instance_stack }}-{{ fact_argo_longname }}" 
+    - "company-cspolicy-{{ instance_stack }}-{{ fact_argo_longname }}:443"
+
+- name: delay {{ traffic_delay_ }} seconds
+  pause:
+    seconds: "{{ traffic_delay_ }}" 
+
+- name: get cs policy hits after delay
+  ignore_errors: yes
+  register: cs_policy_hits_after
+  vars:
+    cs_policy_name: "company-cspolicy-{{ instance_stack }}-{{ fact_argo_longname }}"
+  netscaler_nitro_request:
+    nitro_protocol: https
+    validate_certs: no
+    nsip: "{{ i_use_a_netscaler }}"
+    nitro_user: "{{ netscaler_user }}"
+    nitro_pass: "{{ netscaler_pass }}"
+    operation: get
+    resource: cspolicy
+    name: "{{ item }}"
+  loop:
+    - "company-cspolicy-{{ instance_stack }}-{{ fact_argo_longname }}"
+    - "company-cspolicy-{{ instance_stack }}-{{ fact_argo_longname }}:443"
+
+- name: verification hits before and after delay
+  fail:
+    msg: "Seems traffic still going through netscaler(cs policy {{ item.item }}): hits before the delay {{ item.nitro_object[0].hits }}, after {{ cs_policy_hits_after.results[index].nitro_object[0].hits }}, use --skip-tags 'traffic_check' to skip traffic verification"
+  loop: "{{ cs_policy_hits_before.results }}"
+  loop_control:
+    index_var: index
+    label: "{{ item.item }}"
+  when: 
+    - item.http_response_data.status == 200
+    - item.nitro_object[0].hits != cs_policy_hits_after.results[index].nitro_object[0].hits

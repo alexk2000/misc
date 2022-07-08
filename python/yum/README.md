@@ -1,0 +1,1 @@
+Produces info about available yum updates for rpm packages for Azure OMS/Log Analytics.

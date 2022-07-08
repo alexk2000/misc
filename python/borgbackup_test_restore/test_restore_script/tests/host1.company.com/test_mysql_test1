@@ -1,0 +1,28 @@
+{
+ "ge":
+ [
+  {
+    "sql": "select count(*) as count from my_db.tbl_user",
+    "count": 1000
+  },
+ {
+    "sql": "select count(*) as count from my_db.tbl_traduction_redac",
+    "count": 2400000
+  },
+ {
+    "sql": "select count(*) as count from my_db.tbl_traduction_mig",
+    "count": 1000000
+  }
+ ],
+ "eq":
+ [
+  {
+    "sql": "select * from my_db.tbl_user where user_id=61",
+    "in": { "user_id_profil": 2, "user_nom": "Cens", "user_prenom": "Alex", "user_login": "alexk" }
+  },
+  { 
+    "sql": "select * from my_db.tbl_requete_categorie where reqcat_id_req=111",
+    "in": { "reqcat_id_req": 23232323, "reqcat_id_categfine": -1, "reqcat_id_categtree": 122 }
+  }
+ ]
+}

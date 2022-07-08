@@ -1,0 +1,20 @@
+source:
+  name:  aws stage
+  bservers: 10.79.140.21:9092
+target:
+  name: mvp c2
+  bservers: kafka-c2-n1.com:9092,kafka-c2-n2.com:9092,kafka-c2-n3.com:9092
+
+topics: ALL
+
+interval: 30
+log_level: INFO
+web_port: 80
+lag_threshold: 1000
+
+# Time range to calculate offset diff (seconds)
+# monitor_period: 21600
+monitor_period: 3600
+
+# "monitor_period" starts "monitor_shift" seconds ago
+monitor_shift: 3600

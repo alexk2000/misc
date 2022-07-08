@@ -1,0 +1,33 @@
+- name: verify if traffic still goes through netscaler
+  import_tasks: netscaler_check_traffic.yml
+  tags: [ 'traffic_check' ]
+
+- name: remove and verify netscaler http
+  vars:
+    lb_mon_secure: no
+    lb_mon_name: "company-lb-mon-{{ instance_stack }}-{{ instance_component }}"
+    servicegroup_name: "company-sg-{{ instance_stack }}-{{ fact_argo_longname }}"
+    servicegroup_type: HTTP
+    lb_vserver_name: "company-lb-{{ instance_stack }}-{{ fact_argo_longname }}"
+    lb_service_type: HTTP
+    cs_policy_name: "company-cspolicy-{{ instance_stack }}-{{ fact_argo_longname }}"
+    cs_vserver: "{{ cs_vserver_name_http }}"
+  block:
+    - import_tasks: tasks_remove_netscaler.yml
+      ignore_errors: yes
+    - import_tasks: tasks_remove_netscaler_verification.yml
+
+- name: remove and verify netscaler https
+  vars:
+    lb_mon_secure: yes
+    lb_mon_name: "company-lb-mon-{{ instance_stack }}-{{ instance_component }}:443"
+    lb_vserver_name: "company-lb-{{ instance_stack }}-{{ fact_argo_longname }}:443"
+    lb_service_type: SSL
+    servicegroup_name: "company-sg-{{ instance_stack }}-{{ fact_argo_longname }}:443"
+    servicegroup_type: SSL
+    cs_policy_name: "company-cspolicy-{{ instance_stack }}-{{ fact_argo_longname }}:443"
+    cs_vserver: "{{ cs_vserver_name_ssl }}"
+  block:
+    - import_tasks: tasks_remove_netscaler.yml
+      ignore_errors: yes
+    - import_tasks: tasks_remove_netscaler_verification.yml

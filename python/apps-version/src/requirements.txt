@@ -1,0 +1,5 @@
+aiohttp
+prometheus_async
+pyyaml
+prometheus_client
+aiojobs

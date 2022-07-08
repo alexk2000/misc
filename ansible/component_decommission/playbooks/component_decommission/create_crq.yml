@@ -1,0 +1,121 @@
+- name: Setting up variables
+  hosts: all 
+  gather_facts: False
+  connection: local
+  run_once: True
+  become: no
+  vars:
+    yarp_url: "https://release.company/api/v4/components"
+    app_longname_: "{{ app_longname | default(instance_component_longname) }}"
+    production_list: "[ 'prod', 'prod1', 'prod1-canary', 'prod2', 'prod2-canary', 'phx', 'phx1', 'phx2' ]"
+    default_app_name: "ChandlerDecommissioning"
+  vars_files:
+    - ../../group_vars/argo_env.yml
+
+  tasks:
+    - block:
+      - name: SEA username
+        pause:
+          prompt: "Enter SEA username"
+        register: sea_user
+
+      - name: SEA password
+        pause:
+          prompt: "Enter password"
+          echo: no
+        register: sea_password
+
+      - name: Taking component version from argo
+        local_action: "shell argo artifact get {{ instance_stack }} {{ instance_component }} --format=csv --no-header --skip-cert-validation | awk -F, '{print $1}'"
+        register: app_version
+      - debug: msg={{ app_version.stdout }}
+
+      - name: Looking for app id in yarp
+        ignore_errors: yes
+        register: result_json
+        uri:
+          url: "{{ yarp_url }}"
+          validate_certs: False
+          method: GET 
+          user: "{{ sea_user.user_input }}"
+          password: "{{ sea_password.user_input }}"
+          force_basic_auth: yes
+          body_format: json
+        delegate_to: labshop.company
+
+      - name: check if application longname in yarp is the same as in argo
+        debug:
+          msg: "{{ app_longname_ }} is different in yarp or does not exist. Please check the name in yarp and override this by using --extra-vars app_longname=<component_long_name_in_yarp>"
+        failed_when: result_json | json_query('json.response[?component==`' + app_longname_ + '`]') == []
+
+      - name: Get variables from Yarp
+        set_fact:
+          app_id: "{{ (result_json | json_query('json.response[?component==`' + app_longname_ + '`].id'))[0] }}"
+          default_app_id: "{{ (result_json | json_query('json.response[?component==`' + default_app_name + '`].id'))[0] }}"
+          app_is_deprecated: "{{ (result_json | json_query('json.response[?component==`' + app_longname_ + '`].deprecated'))[0] }}"
+
+      - name: Set variables for CRQ
+        set_fact:
+          yarp_app_id: "{% if app_is_deprecated|bool() %}{{ default_app_id }}{% else %}{{ app_id }}{% endif %}"
+          yarp_app_version: "{% if (app_version.stdout|string()).startswith('404 :') %}0.0.0{% else %}{{ app_version.stdout }}{% endif %}"
+      - debug:
+          msg: "Decommissioning {{ instance_component }} from {{ instance_stack }} ({{ yarp_app_version }} version)"
+
+      - name: Setting up start date (in GMT)
+        shell: "date --iso-8601='seconds' -d '+5 hour +10 second' | cut -c1-19"
+        register: start_date
+      - debug: msg={{ start_date.stdout }}
+
+      - name: Setting up end date (in GMT)
+        shell: "date --iso-8601='seconds' -d '+5 hour +20 second' | cut -c1-19"
+        register: end_date
+      - debug: msg={{ end_date.stdout }}
+
+      - name: create CRQ
+        ignore_errors: yes
+        register: result
+        uri:
+          url: "{{ yarp_url }}/{{ yarp_app_id }}/create"
+          validate_certs: False
+          method: POST
+          user: "{{ sea_user.user_input }}"
+          password: "{{ sea_password.user_input }}"
+          force_basic_auth: yes
+          body_format: json
+          body: '{"change_number": "CHG0123456","commit": "9cd4454a391c1d107ce4d266cd855bfd45e3d9a1","description": "Decommissioning {{ instance_component }} from {{ instance_stack }}","email": "companyTechPlatformPROD@company.com","deployments": [{"datacenter": "Chandler","environment": "Prod"}],"link": "https://jira.company/browse/{{ jira_ticket }}","start_date": "{{ start_date.stdout }}","end_date": "{{ end_date.stdout }}","type": "Normal","version": "{{ yarp_app_version }}"}'
+        delegate_to: labshop.company
+
+      - name: if CRQ already exist
+        debug:
+          msg: "CRQ cannot be created for {{ instance_component }}. See the above error message for details"
+        failed_when: result.json.status_code != 200
+
+      - name: if CRQ created
+        debug:
+          msg: "CRQ {{ result.json.response.change_number }} created"
+        when: result.json.status_code == 200
+
+      - name: begin CRQ
+        ignore_errors: yes
+        register: debug_result
+        uri:
+          url: "https://release.company/api/v4/crq/{{ result.json.response.change_number }}/begin"
+          validate_certs: False
+          method: POST
+          user: "{{ sea_user.user_input }}"
+          password: "{{ sea_password.user_input }}"
+          force_basic_auth: yes
+          body_format: json
+          body: '{"start_date": "{{ start_date.stdout }}"}'
+        delegate_to: labshop.company
+
+      - name: Beginning CRQ
+        debug:
+          msg: "CRQ {{ result.json.response.change_number }} started"
+        when: debug_result.json.status_code == 200
+
+      - name: if there is another CRQ which is blocking this one or another reason (such as Service Unavailble)
+        debug:
+          msg: "Status code was {{ debug_result.json.status_code }}"
+        failed_when: debug_result.json.status_code != 200
+      when: instance_stack in production_list 

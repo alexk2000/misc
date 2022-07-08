@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Flux Web</title>
+</head>
+<body>
+    <p> 
+        <form method="post" action="/" accept-charset="utf-8"
+            enctype="application/x-www-form-urlencoded">
+            <input type="hidden" name="change-ns" value="">
+            <label for="login">Namespace:</label>
+            <select name="selected_ns" onchange="this.form.submit()">
+                {% for ns_ in ns %}
+                    {% if ns_ == selected_ns %}
+                        <option value="{{ ns_ }}" selected>{{ ns_ }}</option>
+                    {% else %}
+                        <option value="{{ ns_ }}">{{ ns_ }}</option>
+                    {% endif %}
+                {% endfor %}
+              </select>
+        </form>
+        {% if jobs_release %}
+            Jobs:<br>
+            {% for job in jobs_release %}
+                {{ job }}<br>
+                job_id={{ job["job_id"] }} workload={{ job["wl"] }} time={{ job["date"] }}<br>
+                <hr>
+                <br>
+            {% endfor %}
+        {% endif %}
+        {% if error_last != "" %}
+            <font color="red">Last error: {{ error_last }}</font><br>
+        {% endif %}
+        <table border=1 cellspacing="2" cellpadding="10">
+            <tr>
+                <th>Workload</th><th>Container</th><th>Image</th><th>Current tag</th><th>Available tags</th>
+            </tr>
+            {% for service in services %}
+                {% set wl = service["ID"].split(":")[1] %}
+                {% for container in service["Containers"] %}
+                    <tr>
+                        <td>{{ wl }}</td>
+                        <td>{{ container["Name"] }}</td>
+                        {% set image = ":".join(container["Current"]["ID"].split(":")[0:-1]) %}
+                        <td>{{ image }}</td>
+                        {% set tag_cur = container["Current"]["ID"].split(":")[-1] %}
+                        <td>{{ tag_cur }}</td>
+                        <td>
+                            <form method="post" action="/" accept-charset="utf-8"
+                                enctype="application/x-www-form-urlencoded">
+                                <input type="hidden" name="release" value="">
+                                <input type="hidden" name="wl" value='{{ service["ID"] }}'>
+                                <input type="hidden" name="image" value='{{ image }}'>
+                                <select name="tag">
+                                    {% for image in container["Images"]["Available"] %}
+                                        {% set tag = image["ID"].split(":")[-1] %}
+                                        {% if tag_cur == tag %}
+                                            <option value="{{ tag }}" selected>{{ tag }}</option>
+                                        {% else %}
+                                            <option value="{{ tag }}">{{ tag }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                                <input type="submit" name="Release">
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            {% endfor%}
+         </table>
+    </p>
+</body>
+</html>

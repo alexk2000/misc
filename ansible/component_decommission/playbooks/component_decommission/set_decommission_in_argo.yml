@@ -1,0 +1,32 @@
+- name: set decommission state in argo
+  hosts: all
+  gather_facts: False
+  connection: local
+  run_once: True
+  vars:
+    stack: "{{ original_instance_stack | default(instance_stack) }}"
+    component_url: "{{ argo_url }}/environment/{{ stack }}/component/{{ instance_component }}/decommission"
+  vars_files:
+    - ../../group_vars/argo_env.yml
+  tasks:
+    - debug:
+        msg: "Component from staging environment should not be decommissioned due to https://confluence.company.biz/display/HCSI/Metadata+enforcement Please re-run with -e 'force_argo_decommission=true' if you will decommission this component from all the environments because the component is not needed anymore."
+      when: "stack == 'staging' and (force_argo_decommission is undefined or force_argo_decommission != 'true')"
+
+    - block:
+        - name: set decommission state in argo
+          uri:
+            url: "{{ component_url }}"
+            method: PUT
+            user: "{{ argo_service_user }}"
+            password: "{{ argo_service_pass }}"
+            force_basic_auth: yes
+            validate_certs: no
+            status_code: 204
+          ignore_errors: yes
+          register: argo_request
+
+        - fail:
+            msg: "Fatal error: set decommission state for component {{ stack }}/{{ instance_component }} failed"
+          when: argo_request.status != 204
+      when: "not (stack == 'staging' and (force_argo_decommission is undefined or force_argo_decommission != 'true'))"

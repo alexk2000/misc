@@ -1,0 +1,8 @@
+source:
+  bootstrap_servers: 10.79.140.21:9092
+destination:
+  bootstrap_servers: 10.79.140.21:9092
+
+interval: 60
+log_level: INFO
+health_check_port: 80

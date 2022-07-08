@@ -1,0 +1,5 @@
+pyyaml
+kafka-python
+prometheus_client
+# lz4
+# crc32c

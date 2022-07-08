@@ -1,0 +1,1 @@
+I used this script to put my text files to ElasticSearch for further quick search. 

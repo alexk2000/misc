@@ -1,0 +1,45 @@
+- name: verify if traffic still goes through styx
+  include_tasks: styx_check_traffic.yml
+  loop: "{{ [real_environment, real_environment+'1', real_environment+'2'] |product(['styxpres', 'styxmobile'])|list }}"
+  tags: [ 'traffic_check' ]
+
+- set_fact:
+    _git: "git --git-dir={{ deploy_temp_load_extra_vars_dir.path }}/.git --work-tree={{ deploy_temp_load_extra_vars_dir.path }}"
+
+- name: git checkout master
+  local_action: "shell {{ _git }} checkout -f master"
+
+- shell: "find {{ deploy_temp_load_extra_vars_dir.path }} | egrep '{{ real_environment }}[12]*/(styxmobile|styxpres)/(styxmobile|styxpres).yml'"
+  register: styx_runtime_configs
+
+- name: remove app from yml
+  shell: "sed -i \"/\\(SHARED_PRESENTATION_APP\\|ORIGIN_APPLICATIONS\\)/ s/\\(\\s*'{{ instance_component }}',*\\s*\\|,\\s*'{{ instance_component }}'\\s*\\)/ /g\" {{ item  }}"
+  loop: "{{ styx_runtime_configs.stdout_lines }}"
+
+# This hack is needed between tasks 'remove app from yml' and 'verify if any changes made' to synchronize data on fs.
+# The problem happens when runnig in docker container (slack integration), after sed makes changes git doesn't see it.
+- shell: " {{ _git }} status"
+
+- name: verify if any changes made
+  local_action: "shell {{ _git }} diff --quiet HEAD"
+  ignore_errors: yes
+  register: git_changed_status
+
+- block:
+    - name: Create pull request
+      include_tasks: create_pr.yml
+      vars:
+        git_project: "{{ runtime_config_git_project }}"
+        git_repo: "{{ runtime_config_git_repo }}"
+        git_dir: "{{ deploy_temp_load_extra_vars_dir.path }}"
+        git_branch: "{{ jira_ticket }}-removing-{{ real_environment }}-{{ instance_component }}-from-styx"
+        git_commit: "{{ jira_ticket }}: Removing {{ real_environment }} {{ instance_component }} from styx"
+
+    - fail:
+        msg: "Please merge PR (see link above) and rerun playbook"
+  when: git_changed_status.rc != 0
+
+# as we here then styx removal PR applied, we need to send api calls to styx to ensure the component is not handled by styx anymore
+- name: Redeploy Styx if component still in it
+  include_tasks: redeploy_styx_if_comp_in_it.yml
+  loop: "{{ [real_environment, real_environment+'1', real_environment+'2'] |product(['styxpres', 'styxmobile'])|list }}"

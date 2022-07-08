@@ -1,0 +1,2 @@
+*.pyc
+/opt/company/tmp

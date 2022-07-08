@@ -1,0 +1,35 @@
+# Cloudlets API credentials
+export CLD_BASEURL='https://akab-xxx.luna.akamaiapis.net'
+export CLD_CLIENTTOKEN='akab-xxx'
+export CLD_CLIENTSECRET='xxx'
+export CLD_ACCESSTOKEN='xxx'
+
+# Cloudlets API credential
+HEADER="import Cloudlets; s = Cloudlets.client(\"$CLD_BASEURL\",\"$CLD_CLIENTTOKEN\",\"$CLD_CLIENTSECRET\",\"$CLD_ACCESSTOKEN\")"
+
+# Python version
+export MYPYTHON='python2.7'
+
+
+export RECEIVER='xxx@xxx.slack.com'
+
+REDIRECTS_FILE="redirects.txt"
+POLICYID="111" 
+POLICYNAME="policy_name"
+DATE=$(date "+%F")
+LOG_DATE=$(date "+%F %T")
+mkdir -p logs
+LOG_FILE="logs/apacheredirector.log"
+
+LOG_LEVEL="DEBUG" # DEBUG or INFO
+# Jira settings
+JIRA_URL="https://jirahost.com"
+JIRA_USER=xxx
+JIRA_PASSWORD=xxx
+JIRA_API="https://jira/api/2"
+JIRA_CSV_FILE="redirects.csv"
+
+# Git settings
+GIT_REPO="repo_path"
+GIT_USER="xxx"
+GIT_PASSWORD="xxx"

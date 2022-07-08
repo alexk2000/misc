@@ -1,0 +1,64 @@
+- name: unbind cs server
+  notify: save ns conf
+  netscaler_nitro_request:
+    nitro_protocol: https
+    validate_certs: no
+    nsip: "{{ i_use_a_netscaler }}"
+    nitro_user: "{{ netscaler_user }}"
+    nitro_pass: "{{ netscaler_pass }}"
+    operation: delete_by_args
+    resource: csvserver_cspolicy_binding
+    args:
+      name: "{{ cs_vserver }}"
+      policyname: "{{ cs_policy_name }}"
+
+- name: remove cs policy
+  notify: save ns conf
+  netscaler_nitro_request:
+    nitro_protocol: https
+    validate_certs: no
+    nsip: "{{ i_use_a_netscaler }}"
+    nitro_user: "{{ netscaler_user }}"
+    nitro_pass: "{{ netscaler_pass }}"
+    operation: delete
+    resource: cspolicy
+    name: "{{ cs_policy_name }}"
+
+- name: remove lb server
+  notify: save ns conf
+  netscaler_nitro_request:
+    nitro_protocol: https
+    validate_certs: no
+    nsip: "{{ i_use_a_netscaler }}"
+    nitro_user: "{{ netscaler_user }}"
+    nitro_pass: "{{ netscaler_pass }}"
+    operation: delete
+    resource: lbvserver
+    name: "{{ lb_vserver_name }}"
+
+- name: remove service group
+  notify: save ns conf
+  netscaler_nitro_request:
+    nitro_protocol: https
+    validate_certs: no
+    nsip: "{{ i_use_a_netscaler }}"
+    nitro_user: "{{ netscaler_user }}"
+    nitro_pass: "{{ netscaler_pass }}"
+    operation: delete
+    resource: serviceGroup
+    name: "{{ servicegroup_name }}"
+
+- name: remove lb monitor
+  notify: save ns conf
+  netscaler_nitro_request:
+    nitro_protocol: https
+    validate_certs: no
+    nsip: "{{ i_use_a_netscaler }}"
+    nitro_user: "{{ netscaler_user }}"
+    nitro_pass: "{{ netscaler_pass }}"
+    operation: delete_by_args
+    resource: lbmonitor
+    args:
+      type: HTTP
+      monitorName: "{{ lb_mon_name }}"
+

@@ -1,0 +1,1 @@
+This is module for some custom monitoring system which scans ssl certificates files on file system and exports Prometheus metrics with expiration information.

@@ -1,0 +1,17 @@
+port: 8080
+ns: dev
+env: dev
+ver_path: /maintenance/version
+interval: 10
+# log level (50 - critical, 40 - error, 30 - warning, 20 - info, 10 - debug, )
+level: 10
+timeout: 5
+
+services:
+  - name: app1
+    url: https://app1.company.com/version
+  - name: app2
+    url: https://app2.company.com/version
+  - name: app3
+    url: https://app3.company.com/version
+

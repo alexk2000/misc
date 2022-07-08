@@ -1,0 +1,36 @@
+- name: add key decommission_date=current_date and decommission_ticket=jira_ticket to component metadata in argo
+  hosts: all
+  gather_facts: False
+  connection: local
+  run_once: True
+  ignore_errors: yes
+  vars:
+    component_url: "{{ argo_url }}/environment/{{ original_instance_stack }}/component/{{ instance_component }}" 
+  vars_files:
+    - ../../group_vars/argo_env.yml
+
+  tasks:
+   - name: get metadata
+     uri:
+       url: "{{ component_url }}"
+       method: GET
+       validate_certs: no
+     register: argo_meta_old
+
+   - set_fact:
+       argo_meta_old: "{{ argo_meta_old.json|combine({'metadata': {'decommission_date': ansible_date_time.iso8601}}, recursive=True) }}"
+
+   - set_fact:
+       argo_meta_old: "{{ argo_meta_old|combine({'metadata': {'decommission_ticket': jira_ticket}}, recursive=True) }}"
+     when: jira_ticket is defined
+
+   - name: update metadata
+     uri:
+       url: "{{ component_url }}"
+       method: PUT
+       user: "{{ argo_service_user }}"
+       password: "{{ argo_service_pass }}"
+       force_basic_auth: yes
+       validate_certs: no
+       body_format: json
+       body: "{{ argo_meta_old }}"

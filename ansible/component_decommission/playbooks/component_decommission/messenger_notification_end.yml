@@ -1,0 +1,32 @@
+- name: notify Slack channels
+  hosts: all
+  become: no
+  gather_facts: yes
+  connection: local
+  run_once: true
+  vars_files:
+    - "../../group_vars/argo_env.yml"
+    - "../../group_vars/all/all.yml"
+
+  vars:
+       do_test_kitchen_specific_tasks: 'False' # we only want to do certain roles if we are running this play in test kitchen - mainly git install
+       get_figfile_from_stash: 'True'
+       slack_channel: "#company-apps-decommission"
+       message_success: |
+         ```App {{ instance_component_longname }} has been decommissioned sucessfully in {{ instance_stack }}```
+       message_from: "Decomm tool"
+
+  pre_tasks:
+    - import_tasks: ../../roles/change_server_in_argo/tasks/get_instance.yml
+    - set_fact:
+       message: "{{ message_success }}"
+       slack_color: good
+
+  roles:
+    - { role: ../../roles/set_environment_longname }
+    - { role: ../../roles/make_local_working_temp_dir }
+    - { role: ../../roles/load_extra_vars, when: get_figfile_from_stash|default(true)|bool }
+    - { role: ../../roles/clean_up_temp }   # get rid of the temp dir we created above
+    - { role: ../../roles/misc/slack_notification_app_decomm, from: "{{ message_from }}", color: "{{ slack_color }}", slack_message: "{{ message }}", channel: "{{ slack_channel }}", when: message is defined } 
+    - { role: ../../roles/misc/slack_notification_app_decomm, from: "{{ message_from }}", color: "{{ slack_color }}", slack_message: "{{ message }}", channel: "{{ pod_slack_channel }}", when: message is defined and pod_slack_channel is defined }
+    - { role: ../../roles/misc/slack_notification_app_decomm, from: "{{ message_from }}", color: "{{ slack_color }}", slack_message: "{{ message }}", channel: "{{ pod_slack_channel_alerts }}", when: message is defined and pod_slack_channel is not defined and pod_slack_channel_alerts is defined }

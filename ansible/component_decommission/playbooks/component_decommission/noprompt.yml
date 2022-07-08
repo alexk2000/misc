@@ -1,0 +1,21 @@
+- name: set service accounts to access Stash/Jira and other actions to avoid any prompts
+  hosts: all
+  gather_facts: no
+  connection: local
+  run_once: True
+  vars_files:
+    - ../../group_vars/all/all.yml
+  tasks:
+    - name: set service account for git
+      set_fact:
+        git_user: 
+          user_input: "{{ wiki_service_user }}"
+    - set_fact:
+        git_password: 
+          user_input: "{{ wiki_service_pass }}"
+
+    - name: set service account for Jira
+      set_fact:
+        jira_user: "{{ wiki_service_user }}"
+    - set_fact:
+        jira_password: "{{ wiki_service_pass }}"

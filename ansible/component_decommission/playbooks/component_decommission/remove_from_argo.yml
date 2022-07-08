@@ -1,0 +1,36 @@
+- name: remove component from argo
+  hosts: all
+  gather_facts: False
+  connection: local
+  run_once: True
+  vars:
+    stack: "{{ original_instance_stack | default(instance_stack) }}"
+    component_url: "{{ argo_url }}/environment/{{ stack }}/component/{{ instance_component }}"
+  vars_files:
+    - ../../group_vars/argo_env.yml
+  tasks:
+    - fail:
+        msg: "Component from staging environment should not be deleted due to https://confluence.company.biz/display/HCSI/Metadata+enforcement Please re-run with -e 'force_argo_remove=true' if you will remove this component from all the environments because the component is not needed anymore."
+      when: "stack == 'staging' and (force_argo_remove is undefined or force_argo_remove != 'true')"
+
+    - name: remove component from argo
+      uri:
+        url: "{{ component_url }}"
+        method: DELETE
+        user: "{{ argo_service_user }}"
+        password: "{{ argo_service_pass }}"
+        force_basic_auth: yes
+        validate_certs: no
+      ignore_errors: yes
+
+    - name: verify if component still in argo
+      uri:
+        url: "{{ component_url }}"
+        method: GET
+        validate_certs: no
+      ignore_errors: yes
+      register: argo_request
+
+    - fail:
+        msg: "Fatal error: removing component {{ stack }}/{{ instance_component }} from argo failed"
+      when: argo_request.status == 200

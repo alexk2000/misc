@@ -1,0 +1,9 @@
+- name: verify if no more than one component specified in --limit
+  hosts: all
+  gather_facts: no
+  connection: local
+  run_once: True
+  tasks:
+    - fail:
+        msg: "Fatal error: not allowed to specify more than on component in --limit, exiting ..."
+      when: ansible_limit.split(',')|length != 1 or ansible_limit.split()|length != 1

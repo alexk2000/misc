@@ -1,0 +1,79 @@
+- name: Remove pipeline-deploy for component
+  hosts: all
+  gather_facts: False
+  connection: local
+  run_once: True
+  become: no
+  vars_files:
+    - ../../group_vars/all/all.yml
+  vars:
+    do_test_kitchen_specific_tasks: 'False'
+    get_figfile_from_stash: 'True'
+    pipeline_deploy_git_project: 'company-platform'
+    pipeline_deploy_git_repo: 'company-pipeline-deploy-scripts'
+    pipeline_deploy_script_url: "https://{{ wiki_service_user }}:{{ wiki_service_pass }}@github.company.biz/{{ pipeline_deploy_git_project }}/{{ pipeline_deploy_git_repo }}.git"
+
+  roles:
+    - { role: set_environment_longname }
+    - { role: load_extra_vars }
+
+  tasks:
+    - fail:
+        msg: "Jira ticket is required. Re-run with -e 'jira_ticket=PSUP-12345'."
+      when: jira_ticket is undefined
+
+    - name: Make a local temporary working directory
+      tempfile:
+        path: /tmp
+        state: directory
+        prefix: "tmp."
+      register: deploy_temp_pipeline_deploy_scripts_dir
+      delegate_to: localhost
+      notify: Cleanup temp
+
+    - name: Change permissions on {{ deploy_temp_pipeline_deploy_scripts_dir.path }} to 755
+      local_action:
+        module: file
+        path: "{{ deploy_temp_pipeline_deploy_scripts_dir.path }}"
+        mode: 0755
+
+    - name: Firstly clone the repo with depth 1 and minus n
+      local_action: "shell git clone -n {{ pipeline_deploy_script_url }} --depth 1 {{ deploy_temp_pipeline_deploy_scripts_dir.path }}"
+
+
+    - name: Set git work dir
+      set_fact:
+        _git: "git --git-dir={{ deploy_temp_pipeline_deploy_scripts_dir.path }}/.git --work-tree={{ deploy_temp_pipeline_deploy_scripts_dir.path }}"
+
+    - name: Set pipeline-deploy file
+      set_fact:
+        pipeline_deploy_file: "{{ deploy_temp_pipeline_deploy_scripts_dir.path }}/env/{{ real_environment }}/deploy-{{ instance_component_longname }}"
+
+    - name: git checkout master
+      local_action: "shell {{ _git }} checkout -f master"
+
+    - name: Check that pipeline-deploy exists
+      stat:
+        path: "{{ pipeline_deploy_file }}"
+      register: pipeline_deploy_exists
+
+    - name: Delete pipeline-deploy
+      file:
+        path: "{{ pipeline_deploy_file }}"
+        state: absent
+      when: pipeline_deploy_exists.stat.exists == True
+
+    - name: Verify if any changes made
+      local_action: "shell {{ _git }} diff --quiet HEAD"
+      ignore_errors: yes
+      register: git_changed_status
+
+    - name: Create pull request
+      include_tasks: create_pr_github.yml
+      vars:
+        git_project: "{{ pipeline_deploy_git_project }}"
+        git_repo: "{{ pipeline_deploy_git_repo }}"
+        git_dir: "{{ deploy_temp_pipeline_deploy_scripts_dir.path }}"
+        git_branch: "{{ jira_ticket }}-decommission-{{ instance_component }}-from-{{ real_environment }}"
+        git_commit: "{{ jira_ticket }}: Decommission {{ instance_component_longname }} from {{ real_environment }}"
+      when: git_changed_status.rc != 0

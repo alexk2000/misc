@@ -1,0 +1,29 @@
+- name: verification if component exists in non prod env if trying to remove from prod
+  hosts: all
+  gather_facts: False
+  connection: local
+  run_once: True
+  vars:
+    production_list: "[ 'prod', 'prod1', 'prod1-canary', 'prod2', 'prod2-canary', 'phx', 'phx1', 'phx2' ]"
+    non_production_list: "[ 'staging', 'staging1', 'staging2', 'staging3', 'ci', 'cloud', 'milan', 'milan1', 'milan2' ]"
+  vars_files:
+    - ../../group_vars/argo_env.yml
+  tasks:
+    - block:
+        - name: request to each non prod env
+          uri:
+            url: "{{ argo_url }}/environment/{{ item }}/component/{{ instance_component }}"
+            method: GET
+            validate_certs: no
+          loop: "{{non_production_list}}"
+          register: staging_component
+          ignore_errors: True
+
+        - name: fail if exists in non prod
+          fail:
+            msg: "Fatal error: you are trying to remove {{ instance_component }} from production env {{ instance_stack }}, please first remove the component from {{item.item}} env"
+          when: 
+           - item.status == 200
+           - item.json.metadata['decommision_date'] is not defined
+          loop: "{{ staging_component.results }}"
+      when: instance_stack in production_list 

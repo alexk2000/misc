@@ -1,0 +1,6 @@
+.vagrant
+Vagrantfile
+beacon.egg-info/
+build/
+dist/
+sdist/

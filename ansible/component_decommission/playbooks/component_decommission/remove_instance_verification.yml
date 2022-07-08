@@ -1,0 +1,34 @@
+- name: remove instance verification
+  hosts: all
+  become: yes
+  gather_facts: yes
+  any_errors_fatal: true
+  tags: rm_inst_ver
+  vars:
+    argo_data:
+      server: "{{ instance_host }}"
+      basePath: "{{ instance_path }}"
+  tasks:
+    - name: verify if systemd service company-container@{{ instance_name }}.service exists
+      shell: "/bin/systemctl status company-container@{{ instance_name }}.service"
+      ignore_errors: yes
+      no_log: True
+      register: systemd_status
+      failed_when: systemd_status.rc == 0
+      delegate_to: "{{ argo_data.server }}"
+    - fail:
+        msg: "Error: systemd service company-container@{{ instance_name }}.service exists"
+      when: systemd_status.rc == 0
+
+    - name: Check if {{ argo_data.basePath }} exists
+      stat:
+        path: "{{ argo_data.basePath }}"
+      no_log: True
+      ignore_errors: yes
+      delegate_to: "{{ argo_data.server }}"
+      register: base_path
+      failed_when: base_path.stat.exists
+    - fail:
+        msg: "Error: {{ argo_data.basePath }} on {{ argo_data.server }} exists"
+      when: base_path.stat.exists
+
